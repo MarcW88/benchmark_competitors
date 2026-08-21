@@ -341,7 +341,7 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} />
+                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} />
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                   <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} />
                 </div>
