@@ -6,6 +6,7 @@ import StatsCards from "@/components/StatsCards";
 import KeywordsTable from "@/components/KeywordsTable";
 import KeywordGap from "@/components/KeywordGap";
 import SlideView from "@/components/SlideView";
+import DomainComparisonChart from "@/components/DomainComparisonChart";
 import { RankedKeyword } from "@/lib/dataforseo";
 import { GapKeyword } from "@/lib/types";
 
@@ -336,10 +337,11 @@ export default function Home() {
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Keyword Gap Analysis</h2>
                     <p className="text-sm text-gray-400 mt-0.5">
-                      {benchmarkResult.domains.join(" vs ")} · {benchmarkResult.total.toLocaleString()} unique keywords
+                      {benchmarkResult.domains.join(" vs ")} · {benchmarkResult.total.toLocaleString()} unique keywords · {LOCATIONS[locationIdx].label}
                     </p>
                   </div>
                 </div>
+                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} />
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                   <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} />
                 </div>
