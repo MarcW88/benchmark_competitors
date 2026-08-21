@@ -106,18 +106,36 @@ export default function Home() {
         if (!res.ok) throw new Error(data.error);
         setBenchmarkResult(data);
         setActiveTab("gap");
-        // Fire AI categorization in background
+        // Fire AI categorization in background (with localStorage cache)
         setAiCategoryMap(null);
+        const kwList = (data.gap as { keyword: string }[]).map((k) => k.keyword);
+        const cacheKey = "ai_cats_" + kwList.length + "_" + kwList.slice(0, 5).join(",");
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { categories, ts } = JSON.parse(cached);
+            // Cache valid for 7 days
+            if (Date.now() - ts < 7 * 24 * 3600 * 1000) {
+              setAiCategoryMap(new Map(Object.entries(categories as Record<string, string>)));
+              // eslint-disable-next-line no-console
+              console.info("[categories] loaded from cache");
+              return;
+            }
+          }
+        } catch {}
         setCategorizingAI(true);
         fetch("/api/categorize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keywords: (data.gap as { keyword: string }[]).map((k) => k.keyword) }),
+          body: JSON.stringify({ keywords: kwList }),
         })
           .then((r) => r.json())
           .then((r) => {
             if (r.categories) {
               setAiCategoryMap(new Map(Object.entries(r.categories as Record<string, string>)));
+              try {
+                localStorage.setItem(cacheKey, JSON.stringify({ categories: r.categories, ts: Date.now() }));
+              } catch {}
             }
           })
           .catch(() => {})
