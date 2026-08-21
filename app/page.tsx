@@ -6,7 +6,7 @@ import StatsCards from "@/components/StatsCards";
 import KeywordsTable from "@/components/KeywordsTable";
 import KeywordGap from "@/components/KeywordGap";
 import { RankedKeyword } from "@/lib/dataforseo";
-import { GapKeyword } from "@/app/api/benchmark/route";
+import { GapKeyword } from "@/lib/types";
 
 const LOCATIONS = [
   { label: "Belgium (FR)", code: 2056, lang: "fr" },

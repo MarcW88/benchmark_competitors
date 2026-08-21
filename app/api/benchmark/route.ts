@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRankedKeywords, RankedKeyword } from "@/lib/dataforseo";
-
-export interface GapKeyword {
-  keyword: string;
-  search_volume: number;
-  cpc: number;
-  keyword_difficulty: number;
-  positions: Record<string, number>;
-  urls: Record<string, string>;
-}
+import { GapKeyword } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   try {

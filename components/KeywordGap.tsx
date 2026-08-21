@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Download, Search } from "lucide-react";
-import { GapKeyword } from "@/app/api/benchmark/route";
+import { GapKeyword } from "@/lib/types";
 
 interface Props {
   gap: GapKeyword[];
