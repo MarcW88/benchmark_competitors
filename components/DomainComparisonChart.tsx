@@ -9,6 +9,8 @@ interface Props {
   domains: string[];
   brandName?: string;
   exportMode?: boolean;
+  aiCategoryMap?: Map<string, string> | null;
+  categorizingAI?: boolean;
 }
 
 type BarMetric = "keywords" | "top10" | "traffic";
@@ -149,7 +151,7 @@ function CategoryView({
   );
 }
 
-export default function DomainComparisonChart({ gap, domains, brandName = "", exportMode = false }: Props) {
+export default function DomainComparisonChart({ gap, domains, brandName = "", exportMode = false, aiCategoryMap, categorizingAI = false }: Props) {
   const [metric, setMetric] = useState<Metric>("keywords");
   const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
 
@@ -179,10 +181,11 @@ export default function DomainComparisonChart({ gap, domains, brandName = "", ex
     });
   }, [filteredGap, domains]);
 
-  const categoryMap = useMemo(
+  const localCategoryMap = useMemo(
     () => buildKeywordCategoryMap(gap.map((k) => k.keyword)),
     [gap]
   );
+  const categoryMap = aiCategoryMap ?? localCategoryMap;
   const topCategories = useMemo(() => getTopCategories(categoryMap), [categoryMap]);
 
   const BAR_METRICS: BarMetric[] = ["keywords", "top10", "traffic"];
@@ -192,7 +195,11 @@ export default function DomainComparisonChart({ gap, domains, brandName = "", ex
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Performance par domaine</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-gray-900">Performance par domaine</h3>
+            {categorizingAI && <span className="text-xs text-violet-500 font-medium animate-pulse">Catégorisation IA…</span>}
+            {aiCategoryMap && !categorizingAI && <span className="text-xs text-violet-600 font-medium">✦ Catégories IA</span>}
+          </div>
           <p className="text-xs text-gray-400 mt-0.5">
             {domains[0]} vs {domains.slice(1).join(", ")}
           </p>

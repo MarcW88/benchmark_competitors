@@ -10,6 +10,8 @@ interface Props {
   domains: string[];
   brandName?: string;
   exportMode?: boolean;
+  aiCategoryMap?: Map<string, string> | null;
+  categorizingAI?: boolean;
 }
 
 type GapFilter = "all" | "gap" | "shared";
@@ -32,7 +34,7 @@ const CAT_COLORS = [
   "bg-fuchsia-100 text-fuchsia-700",
 ];
 
-export default function KeywordGap({ gap, domains, brandName = "", exportMode = false }: Props) {
+export default function KeywordGap({ gap, domains, brandName = "", exportMode = false, aiCategoryMap, categorizingAI = false }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<GapFilter>("all");
   const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
@@ -48,10 +50,11 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
   const mainDomain = domains[0];
   const competitors = domains.slice(1);
 
-  const categoryMap = useMemo(
+  const localCategoryMap = useMemo(
     () => buildKeywordCategoryMap(gap.map((k) => k.keyword)),
     [gap]
   );
+  const categoryMap = aiCategoryMap ?? localCategoryMap;
   const topCategories = useMemo(() => getTopCategories(categoryMap), [categoryMap]);
   const catColorMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -223,6 +226,17 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
         )}
 
         <div className="ml-auto flex items-center gap-3 text-sm text-gray-500">
+          {categorizingAI && (
+            <span className="inline-flex items-center gap-1 text-xs text-violet-600 font-medium animate-pulse">
+              <span className="w-1.5 h-1.5 bg-violet-500 rounded-full inline-block" />
+              Catégorisation IA…
+            </span>
+          )}
+          {aiCategoryMap && !categorizingAI && (
+            <span className="inline-flex items-center gap-1 text-xs text-violet-600 font-medium">
+              ✦ IA
+            </span>
+          )}
           <span className="font-medium">{filtered.length.toLocaleString()} keywords</span>
           <button onClick={exportCSV}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-600 text-xs font-medium transition-colors shadow-sm">

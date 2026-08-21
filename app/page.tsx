@@ -51,6 +51,8 @@ export default function Home() {
   const [pdfExporting, setPdfExporting] = useState(false);
   const [exportMode, setExportMode] = useState(false);
   const [brandName, setBrandName] = useState("");
+  const [aiCategoryMap, setAiCategoryMap] = useState<Map<string, string> | null>(null);
+  const [categorizingAI, setCategorizingAI] = useState(false);
 
   const loc = LOCATIONS[locationIdx];
 
@@ -104,6 +106,22 @@ export default function Home() {
         if (!res.ok) throw new Error(data.error);
         setBenchmarkResult(data);
         setActiveTab("gap");
+        // Fire AI categorization in background
+        setAiCategoryMap(null);
+        setCategorizingAI(true);
+        fetch("/api/categorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keywords: (data.gap as { keyword: string }[]).map((k) => k.keyword) }),
+        })
+          .then((r) => r.json())
+          .then((r) => {
+            if (r.categories) {
+              setAiCategoryMap(new Map(Object.entries(r.categories as Record<string, string>)));
+            }
+          })
+          .catch(() => {})
+          .finally(() => setCategorizingAI(false));
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -325,9 +343,9 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} />
+                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} aiCategoryMap={aiCategoryMap} categorizingAI={categorizingAI} />
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} />
+                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} aiCategoryMap={aiCategoryMap} categorizingAI={categorizingAI} />
                 </div>
               </>
             )}
