@@ -6,9 +6,11 @@ import { GapKeyword } from "@/lib/types";
 interface Props {
   gap: GapKeyword[];
   domains: string[];
+  brandName?: string;
 }
 
 type Metric = "keywords" | "top10" | "traffic";
+type BrandFilter = "all" | "brand" | "non-brand";
 
 const CTR = [0.316, 0.143, 0.089, 0.067, 0.054, 0.045, 0.038, 0.033, 0.029, 0.026];
 function estimateCtr(pos: number) {
@@ -26,15 +28,26 @@ function formatValue(v: number, metric: Metric) {
   return v.toLocaleString();
 }
 
-export default function DomainComparisonChart({ gap, domains }: Props) {
+export default function DomainComparisonChart({ gap, domains, brandName = "" }: Props) {
   const [metric, setMetric] = useState<Metric>("keywords");
+  const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
+
+  const brands = brandName.split(",").map((b) => b.trim().toLowerCase()).filter(Boolean);
+  const isBranded = (kw: string) => brands.some((b) => kw.toLowerCase().includes(b));
+
+  const filteredGap = useMemo(() => {
+    if (brandFilter === "all" || !brands.length) return gap;
+    return gap.filter((kw) =>
+      brandFilter === "brand" ? isBranded(kw.keyword) : !isBranded(kw.keyword)
+    );
+  }, [gap, brandFilter, brandName]);
 
   const stats = useMemo(() => {
     return domains.map((d) => {
       let keywords = 0;
       let top10 = 0;
       let traffic = 0;
-      gap.forEach((kw) => {
+      filteredGap.forEach((kw) => {
         const pos = kw.positions[d];
         if (!pos) return;
         keywords++;
@@ -43,7 +56,7 @@ export default function DomainComparisonChart({ gap, domains }: Props) {
       });
       return { domain: d, keywords, top10, traffic };
     });
-  }, [gap, domains]);
+  }, [filteredGap, domains]);
 
   const values = stats.map((s) => s[metric]);
   const max = Math.max(...values) || 1;
@@ -64,27 +77,46 @@ export default function DomainComparisonChart({ gap, domains }: Props) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h3 className="text-base font-semibold text-gray-900">Performance par domaine</h3>
           <p className="text-xs text-gray-400 mt-0.5">
             {domains[0]} vs {domains.slice(1).join(", ")}
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          {(["keywords", "top10", "traffic"] as Metric[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMetric(m)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                metric === m
-                  ? "bg-white text-blue-600 shadow-sm font-semibold"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {LABELS[m]}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {brands.length > 0 && (
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              {(["all", "brand", "non-brand"] as BrandFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setBrandFilter(f)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                    brandFilter === f
+                      ? "bg-white text-blue-600 shadow-sm font-semibold"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {f === "all" ? "All" : f === "brand" ? `🏷 Brand` : "Non-brand"}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {(["keywords", "top10", "traffic"] as Metric[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMetric(m)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  metric === m
+                    ? "bg-white text-blue-600 shadow-sm font-semibold"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {LABELS[m]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -117,22 +149,22 @@ export default function DomainComparisonChart({ gap, domains }: Props) {
       {/* Summary cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total keywords cumulés", value: gap.length.toLocaleString() },
+          { label: "Total keywords", value: filteredGap.length.toLocaleString() },
           {
-            label: "Keywords exclusifs main",
-            value: gap
+            label: "Exclusifs main",
+            value: filteredGap
               .filter((k) => !!k.positions[domains[0]] && domains.slice(1).every((d) => !k.positions[d]))
               .length.toLocaleString(),
           },
           {
             label: "Gap (concurrents seuls)",
-            value: gap
+            value: filteredGap
               .filter((k) => !k.positions[domains[0]] && domains.slice(1).some((d) => !!k.positions[d]))
               .length.toLocaleString(),
           },
           {
             label: "Keywords partagés",
-            value: gap
+            value: filteredGap
               .filter((k) => !!k.positions[domains[0]] && domains.slice(1).some((d) => !!k.positions[d]))
               .length.toLocaleString(),
           },
