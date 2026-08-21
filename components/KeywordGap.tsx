@@ -7,17 +7,23 @@ import { GapKeyword } from "@/lib/types";
 interface Props {
   gap: GapKeyword[];
   domains: string[];
+  brandName?: string;
 }
 
 type GapFilter = "all" | "gap" | "shared";
+type BrandFilter = "all" | "brand" | "non-brand";
 
 const PAGE_SIZE = 50;
 
-export default function KeywordGap({ gap, domains }: Props) {
+export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<GapFilter>("all");
+  const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
   const [minVolume, setMinVolume] = useState(0);
   const [page, setPage] = useState(1);
+
+  const isBranded = (kw: string) =>
+    brandName ? kw.toLowerCase().includes(brandName.toLowerCase()) : false;
 
   const mainDomain = domains[0];
   const competitors = domains.slice(1);
@@ -29,11 +35,16 @@ export default function KeywordGap({ gap, domains }: Props) {
       if (kw.search_volume < minVolume) return false;
       const mainPos = kw.positions[mainDomain];
       const compHas = competitors.some((d) => kw.positions[d] !== undefined);
-      if (filter === "gap") return !mainPos && compHas;
-      if (filter === "shared") return !!mainPos && compHas;
+      if (filter === "gap") { if (!(!mainPos && compHas)) return false; }
+      else if (filter === "shared") { if (!(!!mainPos && compHas)) return false; }
+      if (brandFilter !== "all" && brandName) {
+        const branded = isBranded(kw.keyword);
+        if (brandFilter === "brand" && !branded) return false;
+        if (brandFilter === "non-brand" && branded) return false;
+      }
       return true;
     });
-  }, [gap, search, filter, minVolume, mainDomain, competitors]);
+  }, [gap, search, filter, brandFilter, minVolume, mainDomain, competitors, brandName]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -139,6 +150,22 @@ export default function KeywordGap({ gap, domains }: Props) {
             className="w-24 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
           />
         </div>
+
+        {brandName && (
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {(["all", "brand", "non-brand"] as BrandFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => { setBrandFilter(f); setPage(1); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  brandFilter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {f === "all" ? "All" : f === "brand" ? "🏷 Brand" : "Non-brand"}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-3 text-sm text-gray-500">
           <span className="font-medium">{filtered.length.toLocaleString()} keywords</span>

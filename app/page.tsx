@@ -48,8 +48,13 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("keywords");
   const [slideOpen, setSlideOpen] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [brandName, setBrandName] = useState("");
 
   const loc = LOCATIONS[locationIdx];
+
+  function deriveBrand(d: string) {
+    return d.split(".")[0].replace(/[-_]/g, " ").trim();
+  }
 
   async function run() {
     if (!domain.trim()) return;
@@ -198,7 +203,7 @@ export default function Home() {
               type="text"
               placeholder="e.g. decathlon.be"
               value={domain}
-              onChange={(e) => setDomain(e.target.value)}
+              onChange={(e) => { setDomain(e.target.value); if (!brandName) setBrandName(deriveBrand(e.target.value)); }}
               onKeyDown={(e) => e.key === "Enter" && run()}
               className="w-full max-w-sm px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-sm"
             />
@@ -242,6 +247,20 @@ export default function Home() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Brand name */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              Brand name <span className="font-normal normal-case text-gray-300">(for brand/non-brand filter)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. decathlon"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              className="w-full max-w-xs px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+            />
           </div>
 
           {/* Location + Run */}
@@ -296,7 +315,7 @@ export default function Home() {
                 </div>
                 <StatsCards keywords={rankedResult.keywords} />
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                  <KeywordsTable keywords={rankedResult.keywords} />
+                  <KeywordsTable keywords={rankedResult.keywords} brandName={brandName} />
                 </div>
               </>
             )}
@@ -312,7 +331,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} />
+                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} />
                 </div>
               </>
             )}

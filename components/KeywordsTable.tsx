@@ -4,8 +4,11 @@ import { useState, useMemo } from "react";
 import { RankedKeyword } from "@/lib/dataforseo";
 import { Download, Search, SlidersHorizontal, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
+type BrandFilter = "all" | "brand" | "non-brand";
+
 interface Props {
   keywords: RankedKeyword[];
+  brandName?: string;
 }
 
 const POSITION_RANGES = [
@@ -26,13 +29,17 @@ function posBadge(pos: number) {
   return "bg-gray-100 text-gray-500";
 }
 
-export default function KeywordsTable({ keywords }: Props) {
+export default function KeywordsTable({ keywords, brandName = "" }: Props) {
   const [search, setSearch] = useState("");
   const [posRange, setPosRange] = useState(0);
   const [minVolume, setMinVolume] = useState(0);
+  const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<keyof RankedKeyword>("position");
   const [sortAsc, setSortAsc] = useState(true);
+
+  const isBranded = (kw: string) =>
+    brandName ? kw.toLowerCase().includes(brandName.toLowerCase()) : false;
 
   const filtered = useMemo(() => {
     const range = POSITION_RANGES[posRange];
@@ -42,7 +49,9 @@ export default function KeywordsTable({ keywords }: Props) {
           k.position >= range.min &&
           k.position <= range.max &&
           k.search_volume >= minVolume &&
-          (search === "" || k.keyword.toLowerCase().includes(search.toLowerCase()))
+          (search === "" || k.keyword.toLowerCase().includes(search.toLowerCase())) &&
+          (brandFilter === "all" || !brandName ||
+            (brandFilter === "brand" ? isBranded(k.keyword) : !isBranded(k.keyword)))
       )
       .sort((a, b) => {
         const av = a[sortKey] as number | string;
@@ -124,6 +133,22 @@ export default function KeywordsTable({ keywords }: Props) {
             className="w-24 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
           />
         </div>
+
+        {brandName && (
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {(["all", "brand", "non-brand"] as BrandFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => { setBrandFilter(f); setPage(1); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  brandFilter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {f === "all" ? "All" : f === "brand" ? "🏷 Brand" : "Non-brand"}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-3 text-sm text-gray-500">
           <span className="font-medium">{filtered.length.toLocaleString()} keywords</span>
