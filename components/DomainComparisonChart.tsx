@@ -11,6 +11,8 @@ interface Props {
   exportMode?: boolean;
   aiCategoryMap?: Map<string, string> | null;
   categorizingAI?: boolean;
+  aiCategoryError?: string | null;
+  onRetryAI?: () => void;
 }
 
 type BarMetric = "keywords" | "top10" | "traffic";
@@ -151,7 +153,7 @@ function CategoryView({
   );
 }
 
-export default function DomainComparisonChart({ gap, domains, brandName = "", exportMode = false, aiCategoryMap, categorizingAI = false }: Props) {
+export default function DomainComparisonChart({ gap, domains, brandName = "", exportMode = false, aiCategoryMap, categorizingAI = false, aiCategoryError, onRetryAI }: Props) {
   const [metric, setMetric] = useState<Metric>("keywords");
   const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
 
@@ -198,7 +200,13 @@ export default function DomainComparisonChart({ gap, domains, brandName = "", ex
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-gray-900">Performance par domaine</h3>
             {categorizingAI && <span className="text-xs text-violet-500 font-medium animate-pulse">Catégorisation IA…</span>}
-            {aiCategoryMap && !categorizingAI && <span className="text-xs text-violet-600 font-medium">✦ Catégories IA</span>}
+            {aiCategoryError && (
+              <span className="text-xs text-red-500 font-medium">
+                IA error
+                {onRetryAI && <button onClick={onRetryAI} className="ml-1 underline hover:text-red-700">Retry</button>}
+              </span>
+            )}
+            {aiCategoryMap && !categorizingAI && !aiCategoryError && <span className="text-xs text-violet-600 font-medium">✦ Catégories IA</span>}
           </div>
           <p className="text-xs text-gray-400 mt-0.5">
             {domains[0]} vs {domains.slice(1).join(", ")}

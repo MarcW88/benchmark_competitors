@@ -12,6 +12,8 @@ interface Props {
   exportMode?: boolean;
   aiCategoryMap?: Map<string, string> | null;
   categorizingAI?: boolean;
+  aiCategoryError?: string | null;
+  onRetryAI?: () => void;
 }
 
 type GapFilter = "all" | "gap" | "shared";
@@ -34,7 +36,7 @@ const CAT_COLORS = [
   "bg-fuchsia-100 text-fuchsia-700",
 ];
 
-export default function KeywordGap({ gap, domains, brandName = "", exportMode = false, aiCategoryMap, categorizingAI = false }: Props) {
+export default function KeywordGap({ gap, domains, brandName = "", exportMode = false, aiCategoryMap, categorizingAI = false, aiCategoryError, onRetryAI }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<GapFilter>("all");
   const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
@@ -232,7 +234,15 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
               Catégorisation IA…
             </span>
           )}
-          {aiCategoryMap && !categorizingAI && (
+          {aiCategoryError && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-red-500 font-medium">
+              IA error: {aiCategoryError.slice(0, 60)}
+              {onRetryAI && (
+                <button onClick={onRetryAI} className="underline hover:text-red-700">Retry</button>
+              )}
+            </span>
+          )}
+          {aiCategoryMap && !categorizingAI && !aiCategoryError && (
             <span className="inline-flex items-center gap-1 text-xs text-violet-600 font-medium">
               ✦ IA
             </span>

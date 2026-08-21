@@ -53,11 +53,48 @@ export default function Home() {
   const [brandName, setBrandName] = useState("");
   const [aiCategoryMap, setAiCategoryMap] = useState<Map<string, string> | null>(null);
   const [categorizingAI, setCategorizingAI] = useState(false);
+  const [aiCategoryError, setAiCategoryError] = useState<string | null>(null);
+  const [lastKwList, setLastKwList] = useState<string[]>([]);
 
   const loc = LOCATIONS[locationIdx];
 
   function deriveBrand(d: string) {
     return d.split(".")[0].replace(/[-_]/g, " ").trim();
+  }
+
+  function runAICategorization(kwList: string[]) {
+    const cacheKey = "ai_cats_" + kwList.length + "_" + kwList.slice(0, 5).join(",");
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { categories, ts } = JSON.parse(cached);
+        if (Date.now() - ts < 7 * 24 * 3600 * 1000) {
+          setAiCategoryMap(new Map(Object.entries(categories as Record<string, string>)));
+          return;
+        }
+      }
+    } catch {}
+    setCategorizingAI(true);
+    setAiCategoryError(null);
+    fetch("/api/categorize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keywords: kwList }),
+    })
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? `HTTP ${r.status}`);
+        if (json.categories) {
+          setAiCategoryMap(new Map(Object.entries(json.categories as Record<string, string>)));
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({ categories: json.categories, ts: Date.now() }));
+          } catch {}
+        }
+      })
+      .catch((e: Error) => {
+        setAiCategoryError(e.message);
+      })
+      .finally(() => setCategorizingAI(false));
   }
 
   async function run() {
@@ -108,38 +145,10 @@ export default function Home() {
         setActiveTab("gap");
         // Fire AI categorization in background (with localStorage cache)
         setAiCategoryMap(null);
+        setAiCategoryError(null);
         const kwList = (data.gap as { keyword: string }[]).map((k) => k.keyword);
-        const cacheKey = "ai_cats_" + kwList.length + "_" + kwList.slice(0, 5).join(",");
-        try {
-          const cached = localStorage.getItem(cacheKey);
-          if (cached) {
-            const { categories, ts } = JSON.parse(cached);
-            // Cache valid for 7 days
-            if (Date.now() - ts < 7 * 24 * 3600 * 1000) {
-              setAiCategoryMap(new Map(Object.entries(categories as Record<string, string>)));
-              // eslint-disable-next-line no-console
-              console.info("[categories] loaded from cache");
-              return;
-            }
-          }
-        } catch {}
-        setCategorizingAI(true);
-        fetch("/api/categorize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keywords: kwList }),
-        })
-          .then((r) => r.json())
-          .then((r) => {
-            if (r.categories) {
-              setAiCategoryMap(new Map(Object.entries(r.categories as Record<string, string>)));
-              try {
-                localStorage.setItem(cacheKey, JSON.stringify({ categories: r.categories, ts: Date.now() }));
-              } catch {}
-            }
-          })
-          .catch(() => {})
-          .finally(() => setCategorizingAI(false));
+        setLastKwList(kwList);
+        runAICategorization(kwList);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -360,9 +369,9 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} aiCategoryMap={aiCategoryMap} categorizingAI={categorizingAI} />
+                <DomainComparisonChart gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} aiCategoryMap={aiCategoryMap} categorizingAI={categorizingAI} aiCategoryError={aiCategoryError} onRetryAI={() => { setAiCategoryError(null); runAICategorization(lastKwList); }} />
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} aiCategoryMap={aiCategoryMap} categorizingAI={categorizingAI} />
+                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} brandName={brandName} exportMode={exportMode} aiCategoryMap={aiCategoryMap} categorizingAI={categorizingAI} aiCategoryError={aiCategoryError} onRetryAI={() => { setAiCategoryError(null); runAICategorization(lastKwList); }} />
                 </div>
               </>
             )}
