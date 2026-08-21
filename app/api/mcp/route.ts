@@ -1,7 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isValidAccessToken } from "@/lib/oauth";
 
 export const maxDuration = 60;
@@ -136,107 +133,131 @@ async function gapReport(mainDomain: string, competitors: string[], location: st
   return md;
 }
 
-function createMcpServer() {
-  const server = new Server(
-    { name: "competitor-benchmark", version: "1.0.0" },
-    { capabilities: { tools: {} } }
-  );
-
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
-      {
-        name: "ranked_keywords",
-        description: "Fetch all keywords a domain ranks for on Google and return a full SEO report with stats, brand/non-brand split and top keywords.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            domain: { type: "string", description: "Domain to analyse, e.g. decathlon.be" },
-            location: { type: "string", description: "Preset: belgium-fr, belgium-nl, france, luxembourg, switzerland, netherlands, usa, uk", default: "belgium-fr" },
-            brand: { type: "string", description: "Brand name for brand/non-brand split", default: "" },
-            limit: { type: "number", description: "Max keywords to fetch (default 200)", default: 200 },
-          },
-          required: ["domain"],
-        },
+const TOOLS = [
+  {
+    name: "ranked_keywords",
+    description: "Fetch all keywords a domain ranks for on Google and return a full SEO report with stats, brand/non-brand split and top keywords.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        domain: { type: "string", description: "Domain to analyse, e.g. decathlon.be" },
+        location: { type: "string", description: "Preset: belgium-fr, belgium-nl, france, luxembourg, switzerland, netherlands, usa, uk", default: "belgium-fr" },
+        brand: { type: "string", description: "Brand name for brand/non-brand split", default: "" },
+        limit: { type: "number", description: "Max keywords to fetch (default 200)", default: 200 },
       },
-      {
-        name: "keyword_gap",
-        description: "Compare a main domain vs competitors and identify keyword opportunities the main domain is missing.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            main_domain: { type: "string", description: "Your domain" },
-            competitor_domains: { type: "array", items: { type: "string" }, description: "List of competitor domains" },
-            location: { type: "string", default: "belgium-fr" },
-            brand: { type: "string", description: "Brand name to filter out branded gap keywords", default: "" },
-            limit: { type: "number", description: "Max keywords per domain (default 150)", default: 150 },
-          },
-          required: ["main_domain", "competitor_domains"],
-        },
+      required: ["domain"],
+    },
+  },
+  {
+    name: "keyword_gap",
+    description: "Compare a main domain vs competitors and identify keyword opportunities the main domain is missing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        main_domain: { type: "string", description: "Your domain" },
+        competitor_domains: { type: "array", items: { type: "string" }, description: "List of competitor domains" },
+        location: { type: "string", default: "belgium-fr" },
+        brand: { type: "string", description: "Brand name to filter branded gap keywords", default: "" },
+        limit: { type: "number", description: "Max keywords per domain (default 150)", default: 150 },
       },
-    ],
-  }));
+      required: ["main_domain", "competitor_domains"],
+    },
+  },
+];
 
-  server.setRequestHandler(CallToolRequestSchema, async (req) => {
-    const { name, arguments: args } = req.params;
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, MCP-Session-Id, MCP-Protocol-Version",
+};
+
+function json(body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: CORS_HEADERS });
+}
+
+function rpc(id: unknown, result: unknown) {
+  return json({ jsonrpc: "2.0", id, result });
+}
+
+function rpcError(id: unknown, code: number, message: string) {
+  return json({ jsonrpc: "2.0", id, error: { code, message } });
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function GET() {
+  return json({ status: "ok", server: "competitor-benchmark" });
+}
+
+export async function POST(req: NextRequest) {
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token || !isValidAccessToken(token)) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  let body: { jsonrpc: string; method: string; params?: Record<string, unknown>; id?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return rpcError(null, -32700, "Parse error");
+  }
+
+  const { method, params, id } = body;
+
+  if (method === "initialize") {
+    return rpc(id, {
+      protocolVersion: "2024-11-05",
+      capabilities: { tools: {} },
+      serverInfo: { name: "competitor-benchmark", version: "1.0.0" },
+    });
+  }
+
+  if (method === "notifications/initialized") {
+    return new Response(null, { status: 202, headers: CORS_HEADERS });
+  }
+
+  if (method === "tools/list") {
+    return rpc(id, { tools: TOOLS });
+  }
+
+  if (method === "tools/call") {
+    const name = params?.name as string;
+    const args = (params?.arguments ?? {}) as Record<string, unknown>;
+
     if (!LOGIN || !PASSWORD) {
-      return { content: [{ type: "text", text: "❌ Missing DATAFORSEO_LOGIN or DATAFORSEO_PASSWORD env variables in Vercel." }], isError: true };
+      return rpc(id, { content: [{ type: "text", text: "❌ DATAFORSEO_LOGIN/PASSWORD not set in Vercel env." }], isError: true });
     }
+
     try {
       let result = "";
       if (name === "ranked_keywords") {
-        result = await rankedReport(args!.domain as string, (args!.location as string) ?? "belgium-fr", (args!.brand as string) ?? "", (args!.limit as number) ?? 200);
+        result = await rankedReport(
+          args.domain as string,
+          (args.location as string) ?? "belgium-fr",
+          (args.brand as string) ?? "",
+          (args.limit as number) ?? 200
+        );
       } else if (name === "keyword_gap") {
-        result = await gapReport(args!.main_domain as string, args!.competitor_domains as string[], (args!.location as string) ?? "belgium-fr", (args!.brand as string) ?? "", (args!.limit as number) ?? 150);
+        result = await gapReport(
+          args.main_domain as string,
+          args.competitor_domains as string[],
+          (args.location as string) ?? "belgium-fr",
+          (args.brand as string) ?? "",
+          (args.limit as number) ?? 150
+        );
       } else {
-        return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+        return rpc(id, { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true });
       }
-      return { content: [{ type: "text", text: result }] };
-    } catch (err: unknown) {
-      return { content: [{ type: "text", text: `❌ ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      return rpc(id, { content: [{ type: "text", text: result }] });
+    } catch (err) {
+      return rpc(id, { content: [{ type: "text", text: `❌ ${err instanceof Error ? err.message : String(err)}` }], isError: true });
     }
-  });
+  }
 
-  return server;
-}
+  if (!id) return new Response(null, { status: 202, headers: CORS_HEADERS });
 
-function withCors(response: Response): Response {
-  const headers = new Headers(response.headers);
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, MCP-Session-Id, MCP-Protocol-Version");
-  return new Response(response.body, { status: response.status, headers });
-}
-
-function authError() {
-  return withCors(new Response(
-    JSON.stringify({ error: "unauthorized", error_description: "Valid Bearer token required" }),
-    { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": "Bearer" } }
-  ));
-}
-
-async function handle(req: NextRequest): Promise<Response> {
-  const auth = req.headers.get("authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token || !isValidAccessToken(token)) return authError();
-
-  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  const server = createMcpServer();
-  await server.connect(transport);
-  const response = await transport.handleRequest(req);
-  await server.close().catch(() => {});
-  return withCors(response);
-}
-
-export async function GET(req: NextRequest) { return handle(req); }
-export async function POST(req: NextRequest) { return handle(req); }
-export async function DELETE(req: NextRequest) { return handle(req); }
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, MCP-Session-Id, MCP-Protocol-Version",
-    },
-  });
+  return rpcError(id, -32601, `Method not found: ${method}`);
 }
