@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { baseUrl } from "@/lib/oauth";
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
+
 export async function GET() {
   const base = baseUrl();
   return NextResponse.json({
@@ -13,5 +23,5 @@ export async function GET() {
     grant_types_supported: ["authorization_code"],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
-  });
+  }, { headers: CORS });
 }

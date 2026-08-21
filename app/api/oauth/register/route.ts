@@ -1,15 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signPayload } from "@/lib/oauth";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const clientId = signPayload({ redirect_uris: body.redirect_uris ?? [], ts: Date.now() });
-  return NextResponse.json({
-    client_id: clientId,
-    client_secret: "public",
-    redirect_uris: body.redirect_uris ?? [],
-    grant_types: ["authorization_code"],
-    response_types: ["code"],
-    token_endpoint_auth_method: "none",
-  });
+  let redirectUris: string[] = [];
+  try {
+    const ct = req.headers.get("content-type") ?? "";
+    const body = ct.includes("application/json")
+      ? await req.json()
+      : Object.fromEntries(new URLSearchParams(await req.text()));
+    redirectUris = body.redirect_uris ?? [];
+  } catch { /* ignore */ }
+
+  return NextResponse.json(
+    {
+      client_id: "benchmark-mcp-client",
+      client_secret_expires_at: 0,
+      redirect_uris: redirectUris,
+      grant_types: ["authorization_code"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+      client_name: "Benchmark MCP",
+    },
+    { headers: CORS }
+  );
 }
