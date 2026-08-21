@@ -225,85 +225,43 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Domain inputs */}
-          <div className="flex flex-col gap-3">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              {mode === "benchmark" ? "Main domain" : "Domain"}
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. decathlon.be"
-              value={domain}
-              onChange={(e) => { setDomain(e.target.value); if (!brandName) setBrandName(deriveBrand(e.target.value)); }}
-              onKeyDown={(e) => e.key === "Enter" && run()}
-              className="w-full max-w-sm px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-sm"
-            />
+          {/* Fields row */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                {mode === "benchmark" ? "Main domain" : "Domain"}
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. decathlon.be"
+                value={domain}
+                onChange={(e) => { setDomain(e.target.value); if (!brandName) setBrandName(deriveBrand(e.target.value)); }}
+                onKeyDown={(e) => e.key === "Enter" && run()}
+                className="w-52 px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+              />
+            </div>
 
-            {mode === "benchmark" && (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                  Competitors
-                </label>
-                {competitors.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2 max-w-sm">
-                    <input
-                      type="text"
-                      placeholder={`competitor${i + 1}.com`}
-                      value={c}
-                      onChange={(e) => {
-                        const next = [...competitors];
-                        next[i] = e.target.value;
-                        setCompetitors(next);
-                      }}
-                      className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
-                    />
-                    {competitors.length > 1 && (
-                      <button
-                        onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))}
-                        className="p-2 text-gray-300 hover:text-red-400 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {competitors.length < 4 && (
-                  <button
-                    onClick={() => setCompetitors([...competitors, ""])}
-                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 transition-colors w-fit font-medium"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add competitor
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                Brand(s) <span className="font-normal normal-case text-gray-300">virgule</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. decathlon, sport 2000"
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                className="w-48 px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+              />
+            </div>
 
-          {/* Brand name */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              Brand name(s) <span className="font-normal normal-case text-gray-300">(séparés par virgule : decathlon, athlete)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. decathlon, sport 2000"
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              className="w-full max-w-xs px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
-            />
-          </div>
-
-          {/* Location + Run */}
-          <div className="flex flex-wrap items-end gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
                 Country / Language
               </label>
               <select
                 value={locationIdx}
                 onChange={(e) => setLocationIdx(Number(e.target.value))}
-                className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+                className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
               >
                 {LOCATIONS.map((l, i) => (
                   <option key={i} value={i}>{l.label}</option>
@@ -314,13 +272,54 @@ export default function Home() {
             <button
               onClick={run}
               disabled={loading || !domain.trim()}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-colors shadow-sm text-sm"
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-colors shadow-sm text-sm"
             >
               {loading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" />Fetching…</>
               ) : "Run analysis"}
             </button>
           </div>
+
+          {/* Competitors (benchmark only) */}
+          {mode === "benchmark" && (
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide self-center mr-1">
+                Competitors
+              </label>
+              {competitors.map((c, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    placeholder={`competitor${i + 1}.com`}
+                    value={c}
+                    onChange={(e) => {
+                      const next = [...competitors];
+                      next[i] = e.target.value;
+                      setCompetitors(next);
+                    }}
+                    className="w-44 px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+                  />
+                  {competitors.length > 1 && (
+                    <button
+                      onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))}
+                      className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {competitors.length < 4 && (
+                <button
+                  onClick={() => setCompetitors([...competitors, ""])}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium px-2 py-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Error */}
