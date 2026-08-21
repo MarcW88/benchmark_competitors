@@ -13,6 +13,11 @@
 @media print {
   .no-print { display: none !important; }
   .print-break { page-break-before: always; }
-  body { background: white !important; }
+  body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   header { display: none !important; }
+  button { display: none !important; }
+  input { display: none !important; }
+  nav { display: none !important; }
+  [class*='shadow'] { box-shadow: none !important; }
+  @page { margin: 1cm; }
 }

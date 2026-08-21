@@ -114,32 +114,16 @@ export default function Home() {
 
   const hasResults = !!rankedResult || !!benchmarkResult;
 
-  async function exportPagePDF() {
-    setPdfExporting(true);
+  function exportPagePDF() {
     setExportMode(true);
-    await new Promise((r) => setTimeout(r, 300));
-    try {
-      const { default: jsPDF } = await import("jspdf");
-      const { default: html2canvas } = await import("html2canvas");
-      const el = document.getElementById("results-section");
-      if (!el) return;
-      const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff", scrollY: 0 });
-      const img = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: "a4" });
-      const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = pdf.internal.pageSize.getHeight();
-      const imgH = (canvas.height * pdfW) / canvas.width;
-      let y = 0;
-      while (y < imgH) {
-        if (y > 0) pdf.addPage();
-        pdf.addImage(img, "PNG", 0, -y, pdfW, imgH);
-        y += pdfH;
-      }
-      pdf.save(`benchmark-${domain || "report"}.pdf`);
-    } finally {
-      setExportMode(false);
-      setPdfExporting(false);
-    }
+    setPdfExporting(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setExportMode(false);
+        setPdfExporting(false);
+      }, 500);
+    }, 350);
   }
 
   return (
