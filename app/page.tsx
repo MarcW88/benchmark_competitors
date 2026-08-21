@@ -252,11 +252,11 @@ export default function Home() {
           {/* Brand name */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              Brand name <span className="font-normal normal-case text-gray-300">(for brand/non-brand filter)</span>
+              Brand name(s) <span className="font-normal normal-case text-gray-300">(séparés par virgule : decathlon, athlete)</span>
             </label>
             <input
               type="text"
-              placeholder="e.g. decathlon"
+              placeholder="e.g. decathlon, sport 2000"
               value={brandName}
               onChange={(e) => setBrandName(e.target.value)}
               className="w-full max-w-xs px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"

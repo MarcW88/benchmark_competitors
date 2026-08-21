@@ -22,8 +22,16 @@ export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
   const [minVolume, setMinVolume] = useState(0);
   const [page, setPage] = useState(1);
 
-  const isBranded = (kw: string) =>
-    brandName ? kw.toLowerCase().includes(brandName.toLowerCase()) : false;
+  const brands = brandName
+    .split(",")
+    .map((b) => b.trim().toLowerCase())
+    .filter(Boolean);
+
+  const isBranded = (kw: string) => {
+    if (!brands.length) return false;
+    const kwLower = kw.toLowerCase();
+    return brands.some((b) => kwLower.includes(b));
+  };
 
   const mainDomain = domains[0];
   const competitors = domains.slice(1);
@@ -37,7 +45,7 @@ export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
       const compHas = competitors.some((d) => kw.positions[d] !== undefined);
       if (filter === "gap") { if (!(!mainPos && compHas)) return false; }
       else if (filter === "shared") { if (!(!!mainPos && compHas)) return false; }
-      if (brandFilter !== "all" && brandName) {
+      if (brandFilter !== "all" && brands.length) {
         const branded = isBranded(kw.keyword);
         if (brandFilter === "brand" && !branded) return false;
         if (brandFilter === "non-brand" && branded) return false;
@@ -151,7 +159,7 @@ export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
           />
         </div>
 
-        {brandName && (
+        {brands.length > 0 && (
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             {(["all", "brand", "non-brand"] as BrandFilter[]).map((f) => (
               <button
@@ -161,7 +169,7 @@ export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
                   brandFilter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                {f === "all" ? "All" : f === "brand" ? "🏷 Brand" : "Non-brand"}
+                {f === "all" ? "All" : f === "brand" ? `🏷 Brand${brands.length > 1 ? ` (${brands.length})` : ""}` : "Non-brand"}
               </button>
             ))}
           </div>

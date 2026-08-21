@@ -38,11 +38,21 @@ export default function KeywordsTable({ keywords, brandName = "" }: Props) {
   const [sortKey, setSortKey] = useState<keyof RankedKeyword>("position");
   const [sortAsc, setSortAsc] = useState(true);
 
-  const isBranded = (kw: string) =>
-    brandName ? kw.toLowerCase().includes(brandName.toLowerCase()) : false;
+  const brands = brandName
+    .split(",")
+    .map((b) => b.trim().toLowerCase())
+    .filter(Boolean);
+
+  const isBranded = (kw: string) => {
+    if (!brands.length) return false;
+    const kwLower = kw.toLowerCase();
+    return brands.some((b) => kwLower.includes(b));
+  };
 
   const filtered = useMemo(() => {
     const range = POSITION_RANGES[posRange];
+    const _brands = brandName.split(",").map((b) => b.trim().toLowerCase()).filter(Boolean);
+    const _isBranded = (kw: string) => _brands.some((b) => kw.toLowerCase().includes(b));
     return keywords
       .filter(
         (k) =>
@@ -50,8 +60,8 @@ export default function KeywordsTable({ keywords, brandName = "" }: Props) {
           k.position <= range.max &&
           k.search_volume >= minVolume &&
           (search === "" || k.keyword.toLowerCase().includes(search.toLowerCase())) &&
-          (brandFilter === "all" || !brandName ||
-            (brandFilter === "brand" ? isBranded(k.keyword) : !isBranded(k.keyword)))
+          (brandFilter === "all" || !_brands.length ||
+            (brandFilter === "brand" ? _isBranded(k.keyword) : !_isBranded(k.keyword)))
       )
       .sort((a, b) => {
         const av = a[sortKey] as number | string;
@@ -134,7 +144,7 @@ export default function KeywordsTable({ keywords, brandName = "" }: Props) {
           />
         </div>
 
-        {brandName && (
+        {brands.length > 0 && (
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             {(["all", "brand", "non-brand"] as BrandFilter[]).map((f) => (
               <button
@@ -144,7 +154,7 @@ export default function KeywordsTable({ keywords, brandName = "" }: Props) {
                   brandFilter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                {f === "all" ? "All" : f === "brand" ? "🏷 Brand" : "Non-brand"}
+                {f === "all" ? "All" : f === "brand" ? `🏷 Brand${brands.length > 1 ? ` (${brands.length})` : ""}` : "Non-brand"}
               </button>
             ))}
           </div>
