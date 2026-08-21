@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Download, Search, TrendingUp } from "lucide-react";
+import { Download, Search, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { GapKeyword } from "@/lib/types";
+import { buildKeywordCategoryMap, getTopCategories } from "@/lib/semantics";
 
 interface Props {
   gap: GapKeyword[];
@@ -16,63 +17,109 @@ type BrandFilter = "all" | "brand" | "non-brand";
 
 const PAGE_SIZE = 50;
 
+const CAT_COLORS = [
+  "bg-violet-100 text-violet-700",
+  "bg-sky-100 text-sky-700",
+  "bg-amber-100 text-amber-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-rose-100 text-rose-700",
+  "bg-orange-100 text-orange-700",
+  "bg-teal-100 text-teal-700",
+  "bg-pink-100 text-pink-700",
+  "bg-indigo-100 text-indigo-700",
+  "bg-lime-100 text-lime-700",
+  "bg-cyan-100 text-cyan-700",
+  "bg-fuchsia-100 text-fuchsia-700",
+];
+
 export default function KeywordGap({ gap, domains, brandName = "", exportMode = false }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<GapFilter>("all");
   const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [minVolume, setMinVolume] = useState(0);
   const [page, setPage] = useState(1);
+  const [sortDomain, setSortDomain] = useState<string | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
 
-  const brands = brandName
-    .split(",")
-    .map((b) => b.trim().toLowerCase())
-    .filter(Boolean);
-
-  const isBranded = (kw: string) => {
-    if (!brands.length) return false;
-    const kwLower = kw.toLowerCase();
-    return brands.some((b) => kwLower.includes(b));
-  };
+  const brands = brandName.split(",").map((b) => b.trim().toLowerCase()).filter(Boolean);
+  const isBranded = (kw: string) => brands.some((b) => kw.toLowerCase().includes(b));
 
   const mainDomain = domains[0];
   const competitors = domains.slice(1);
 
+  const categoryMap = useMemo(
+    () => buildKeywordCategoryMap(gap.map((k) => k.keyword)),
+    [gap]
+  );
+  const topCategories = useMemo(() => getTopCategories(categoryMap), [categoryMap]);
+  const catColorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    topCategories.forEach((cat, i) => m.set(cat, CAT_COLORS[i % CAT_COLORS.length]));
+    m.set("Autre", "bg-gray-100 text-gray-500");
+    return m;
+  }, [topCategories]);
+
   const filtered = useMemo(() => {
-    return gap.filter((kw) => {
-      if (search && !kw.keyword.toLowerCase().includes(search.toLowerCase()))
-        return false;
+    let rows = gap.filter((kw) => {
+      if (search && !kw.keyword.toLowerCase().includes(search.toLowerCase())) return false;
       if (kw.search_volume < minVolume) return false;
       const mainPos = kw.positions[mainDomain];
       const compHas = competitors.some((d) => kw.positions[d] !== undefined);
-      if (filter === "gap") { if (!(!mainPos && compHas)) return false; }
-      else if (filter === "shared") { if (!(!!mainPos && compHas)) return false; }
+      if (filter === "gap" && !(!mainPos && compHas)) return false;
+      if (filter === "shared" && !(!!mainPos && compHas)) return false;
       if (brandFilter !== "all" && brands.length) {
         const branded = isBranded(kw.keyword);
         if (brandFilter === "brand" && !branded) return false;
         if (brandFilter === "non-brand" && branded) return false;
       }
+      if (categoryFilter !== "all" && categoryMap.get(kw.keyword) !== categoryFilter) return false;
       return true;
     });
-  }, [gap, search, filter, brandFilter, minVolume, mainDomain, competitors, brandName]);
+
+    if (sortDomain) {
+      rows = [...rows].sort((a, b) => {
+        const pa = a.positions[sortDomain] ?? (sortAsc ? 999 : 0);
+        const pb = b.positions[sortDomain] ?? (sortAsc ? 999 : 0);
+        return sortAsc ? pa - pb : pb - pa;
+      });
+    }
+
+    return rows;
+  }, [gap, search, filter, brandFilter, categoryFilter, minVolume, mainDomain, competitors, brandName, sortDomain, sortAsc, categoryMap]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = exportMode ? filtered : filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  function toggleSort(domain: string) {
+    if (sortDomain === domain) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortDomain(domain);
+      setSortAsc(true);
+    }
+    setPage(1);
+  }
+
+  function SortIcon({ domain }: { domain: string }) {
+    if (sortDomain !== domain) return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
+    return sortAsc
+      ? <ChevronUp className="w-3 h-3 text-blue-600" />
+      : <ChevronDown className="w-3 h-3 text-blue-600" />;
+  }
+
   function exportCSV() {
-    const headers = [
-      "Keyword",
-      "Volume",
-      "CPC",
-      "KD",
-      ...domains,
-    ];
-    const rows = filtered.map((kw) => [
-      `"${kw.keyword}"`,
-      kw.search_volume,
-      kw.cpc.toFixed(2),
-      kw.keyword_difficulty,
-      ...domains.map((d) => kw.positions[d] ?? "—"),
-    ].join(","));
+    const headers = ["Keyword", "Catégorie", "Volume", "CPC", "KD", ...domains];
+    const rows = filtered.map((kw) =>
+      [
+        `"${kw.keyword}"`,
+        `"${categoryMap.get(kw.keyword) ?? "Autre"}"`,
+        kw.search_volume,
+        kw.cpc.toFixed(2),
+        kw.keyword_difficulty,
+        ...domains.map((d) => kw.positions[d] ?? "—"),
+      ].join(",")
+    );
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -93,12 +140,8 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
     return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${cls}`}>#{pos}</span>;
   }
 
-  const gapCount = gap.filter(
-    (k) => !k.positions[mainDomain] && competitors.some((d) => k.positions[d])
-  ).length;
-  const sharedCount = gap.filter(
-    (k) => k.positions[mainDomain] && competitors.some((d) => k.positions[d])
-  ).length;
+  const gapCount = gap.filter((k) => !k.positions[mainDomain] && competitors.some((d) => k.positions[d])).length;
+  const sharedCount = gap.filter((k) => k.positions[mainDomain] && competitors.some((d) => k.positions[d])).length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -138,13 +181,8 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
 
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           {(["all", "gap", "shared"] as GapFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => { setFilter(f); setPage(1); }}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
-                filter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
+            <button key={f} onClick={() => { setFilter(f); setPage(1); }}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${filter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"}`}>
               {f === "gap" ? "Gap only" : f === "shared" ? "Shared" : "All"}
             </button>
           ))}
@@ -152,9 +190,7 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
 
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>Vol ≥</span>
-          <input
-            type="number"
-            value={minVolume}
+          <input type="number" value={minVolume}
             onChange={(e) => { setMinVolume(Number(e.target.value)); setPage(1); }}
             className="w-24 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
           />
@@ -163,25 +199,33 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
         {brands.length > 0 && (
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             {(["all", "brand", "non-brand"] as BrandFilter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => { setBrandFilter(f); setPage(1); }}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  brandFilter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
+              <button key={f} onClick={() => { setBrandFilter(f); setPage(1); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${brandFilter === f ? "bg-white text-blue-600 shadow-sm font-semibold" : "text-gray-500 hover:text-gray-700"}`}>
                 {f === "all" ? "All" : f === "brand" ? `🏷 Brand${brands.length > 1 ? ` (${brands.length})` : ""}` : "Non-brand"}
               </button>
             ))}
           </div>
         )}
 
+        {/* Category filter */}
+        {topCategories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+          >
+            <option value="all">Toutes catégories</option>
+            {topCategories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+            <option value="Autre">Autre</option>
+          </select>
+        )}
+
         <div className="ml-auto flex items-center gap-3 text-sm text-gray-500">
           <span className="font-medium">{filtered.length.toLocaleString()} keywords</span>
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-600 text-xs font-medium transition-colors shadow-sm"
-          >
+          <button onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-600 text-xs font-medium transition-colors shadow-sm">
             <Download className="w-3.5 h-3.5" />
             Export CSV
           </button>
@@ -194,33 +238,45 @@ export default function KeywordGap({ gap, domains, brandName = "", exportMode = 
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               <th className="px-4 py-3 text-left">Keyword</th>
+              <th className="px-4 py-3 text-left">Catégorie</th>
               <th className="px-4 py-3 text-right">Volume</th>
               <th className="px-4 py-3 text-right">CPC</th>
               <th className="px-4 py-3 text-right">KD</th>
               {domains.map((d, i) => (
                 <th key={d} className="px-4 py-3 text-center">
-                  <span className={i === 0 ? "text-blue-600" : "text-gray-400"}>{d}</span>
+                  <button
+                    onClick={() => toggleSort(d)}
+                    className={`inline-flex items-center gap-1 hover:text-gray-800 transition-colors ${i === 0 ? "text-blue-600" : "text-gray-400"}`}
+                  >
+                    {d.replace(/^www\./, "")}
+                    <SortIcon domain={d} />
+                  </button>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {paged.map((kw, i) => (
-              <tr
-                key={`${kw.keyword}-${i}`}
-                className={`hover:bg-gray-50 transition-colors ${!kw.positions[mainDomain] ? "bg-red-50/40" : ""}`}
-              >
-                <td className="px-4 py-2.5 font-medium text-gray-900 max-w-xs truncate">{kw.keyword}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 font-medium">
-                  {kw.search_volume.toLocaleString()}
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">${kw.cpc.toFixed(2)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">{kw.keyword_difficulty}</td>
-                {domains.map((d) => (
-                  <td key={d} className="px-4 py-2.5 text-center">{posCell(kw.positions[d])}</td>
-                ))}
-              </tr>
-            ))}
+            {paged.map((kw, i) => {
+              const cat = categoryMap.get(kw.keyword) ?? "Autre";
+              const catCls = catColorMap.get(cat) ?? "bg-gray-100 text-gray-500";
+              return (
+                <tr key={`${kw.keyword}-${i}`}
+                  className={`hover:bg-gray-50 transition-colors ${!kw.positions[mainDomain] ? "bg-red-50/40" : ""}`}>
+                  <td className="px-4 py-2.5 font-medium text-gray-900 max-w-[200px] truncate">{kw.keyword}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${catCls}`}>
+                      {cat}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 font-medium">{kw.search_volume.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">${kw.cpc.toFixed(2)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">{kw.keyword_difficulty}</td>
+                  {domains.map((d) => (
+                    <td key={d} className="px-4 py-2.5 text-center">{posCell(kw.positions[d])}</td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

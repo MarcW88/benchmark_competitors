@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { GapKeyword } from "@/lib/types";
+import { buildKeywordCategoryMap, getTopCategories } from "@/lib/semantics";
 
 interface Props {
   gap: GapKeyword[];
@@ -10,7 +11,8 @@ interface Props {
   exportMode?: boolean;
 }
 
-type Metric = "keywords" | "top10" | "traffic";
+type BarMetric = "keywords" | "top10" | "traffic";
+type Metric = BarMetric | "categories";
 type BrandFilter = "all" | "brand" | "non-brand";
 
 const CTR = [0.316, 0.143, 0.089, 0.067, 0.054, 0.045, 0.038, 0.033, 0.029, 0.026];
@@ -33,7 +35,17 @@ const LABELS: Record<Metric, string> = {
   keywords: "Total keywords",
   top10: "Top 10",
   traffic: "Trafic estimé",
+  categories: "Catégories",
 };
+
+const CAT_PALETTE = [
+  "bg-violet-400", "bg-sky-400", "bg-amber-400", "bg-emerald-400",
+  "bg-rose-400", "bg-orange-400", "bg-teal-400", "bg-pink-400",
+];
+const CAT_TEXT = [
+  "text-violet-700", "text-sky-700", "text-amber-700", "text-emerald-700",
+  "text-rose-700", "text-orange-700", "text-teal-700", "text-pink-700",
+];
 
 const COLORS = [
   { bar: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50 border-blue-200" },
@@ -48,7 +60,7 @@ function BarGroup({
   metric,
 }: {
   stats: { domain: string; keywords: number; top10: number; traffic: number }[];
-  metric: Metric;
+  metric: BarMetric;
 }) {
   const values = stats.map((s) => s[metric]);
   const max = Math.max(...values) || 1;
@@ -78,6 +90,61 @@ function BarGroup({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function CategoryView({
+  filteredGap,
+  domains,
+  categoryMap,
+  topCategories,
+  topN = 8,
+}: {
+  filteredGap: GapKeyword[];
+  domains: string[];
+  categoryMap: Map<string, string>;
+  topCategories: string[];
+  topN?: number;
+}) {
+  const catStats = topCategories.slice(0, topN).map((cat, idx) => {
+    const catKws = filteredGap.filter((kw) => categoryMap.get(kw.keyword) === cat);
+    const domainCounts = domains.map((d) => ({
+      domain: d,
+      count: catKws.filter((kw) => kw.positions[d] !== undefined).length,
+    }));
+    return { cat, domainCounts, total: catKws.length, idx };
+  });
+
+  const maxTotal = Math.max(...catStats.map((s) => s.total), 1);
+
+  return (
+    <div className="space-y-4">
+      {catStats.map(({ cat, domainCounts, total, idx }) => (
+        <div key={cat} className="flex items-start gap-3">
+          <span className={`text-xs font-semibold w-24 shrink-0 pt-1 truncate ${CAT_TEXT[idx % CAT_TEXT.length]}`} title={cat}>
+            {cat}
+          </span>
+          <div className="flex-1 space-y-1">
+            {domainCounts.map((dc, di) => {
+              const pct = (dc.count / maxTotal) * 100;
+              const color = COLORS[di % COLORS.length];
+              return (
+                <div key={dc.domain} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-20 shrink-0 truncate text-right" title={dc.domain}>
+                    {dc.domain.replace(/^www\./, "")}
+                  </span>
+                  <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${color.bar}`} style={{ width: `${Math.max(pct, dc.count > 0 ? 1 : 0)}%` }} />
+                  </div>
+                  <span className={`text-xs font-semibold w-8 text-right tabular-nums ${color.text}`}>{dc.count}</span>
+                </div>
+              );
+            })}
+          </div>
+          <span className="text-xs text-gray-400 shrink-0 pt-1">{total} kw</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -112,6 +179,14 @@ export default function DomainComparisonChart({ gap, domains, brandName = "", ex
     });
   }, [filteredGap, domains]);
 
+  const categoryMap = useMemo(
+    () => buildKeywordCategoryMap(gap.map((k) => k.keyword)),
+    [gap]
+  );
+  const topCategories = useMemo(() => getTopCategories(categoryMap), [categoryMap]);
+
+  const BAR_METRICS: BarMetric[] = ["keywords", "top10", "traffic"];
+
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
       {/* Header */}
@@ -142,7 +217,7 @@ export default function DomainComparisonChart({ gap, domains, brandName = "", ex
               </div>
             )}
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              {(["keywords", "top10", "traffic"] as Metric[]).map((m) => (
+              {(["keywords", "top10", "traffic", "categories"] as Metric[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMetric(m)}
@@ -160,20 +235,39 @@ export default function DomainComparisonChart({ gap, domains, brandName = "", ex
         )}
       </div>
 
-      {/* Normal mode: single chart */}
-      {!exportMode && <BarGroup stats={stats} metric={metric} />}
+      {/* Normal mode */}
+      {!exportMode && metric !== "categories" && (
+        <BarGroup stats={stats} metric={metric as BarMetric} />
+      )}
+      {!exportMode && metric === "categories" && (
+        <CategoryView
+          filteredGap={filteredGap}
+          domains={domains}
+          categoryMap={categoryMap}
+          topCategories={topCategories}
+        />
+      )}
 
-      {/* Export mode: all 3 charts stacked */}
+      {/* Export mode: all views stacked */}
       {exportMode && (
         <div className="flex flex-col gap-8">
-          {(["keywords", "top10", "traffic"] as Metric[]).map((m) => (
+          {BAR_METRICS.map((m) => (
             <div key={m}>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                {LABELS[m]}
-              </p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{LABELS[m]}</p>
               <BarGroup stats={stats} metric={m} />
             </div>
           ))}
+          {topCategories.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{LABELS.categories}</p>
+              <CategoryView
+                filteredGap={filteredGap}
+                domains={domains}
+                categoryMap={categoryMap}
+                topCategories={topCategories}
+              />
+            </div>
+          )}
         </div>
       )}
 
