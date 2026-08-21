@@ -16,24 +16,25 @@ export default function StatsCards({ keywords }: Props) {
   );
 
   const cards = [
-    { label: "Top 3", value: top3, color: "text-emerald-400" },
-    { label: "Top 10", value: top10, color: "text-blue-400" },
-    { label: "Top 20", value: top20, color: "text-violet-400" },
-    { label: "Top 100", value: top100, color: "text-slate-300" },
-    { label: "Est. Traffic", value: totalTraffic.toLocaleString(), color: "text-amber-400" },
+    { label: "Top 3", value: top3, accent: "#10B981", bg: "#F0FDF4", border: "#BBF7D0" },
+    { label: "Top 10", value: top10, accent: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE" },
+    { label: "Top 20", value: top20, accent: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
+    { label: "Top 100", value: top100, accent: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+    { label: "Est. Traffic", value: totalTraffic.toLocaleString(), accent: "#F59E0B", bg: "#FFFBEB", border: "#FDE68A" },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
       {cards.map((c) => (
         <div
           key={c.label}
-          className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-1"
+          className="rounded-xl p-4 flex flex-col gap-1"
+          style={{ background: c.bg, border: `1px solid ${c.border}` }}
         >
-          <span className="text-xs text-slate-400 uppercase tracking-wide">
+          <span className="text-xs font-medium uppercase tracking-wide" style={{ color: c.accent }}>
             {c.label}
           </span>
-          <span className={`text-2xl font-bold ${c.color}`}>{c.value}</span>
+          <span className="text-3xl font-bold text-gray-900">{c.value}</span>
         </div>
       ))}
     </div>

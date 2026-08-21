@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, BarChart3, GitCompareArrows, Loader2, AlertCircle } from "lucide-react";
+import { Plus, X, BarChart3, GitCompareArrows, Loader2, AlertCircle, Presentation, FileDown } from "lucide-react";
 import StatsCards from "@/components/StatsCards";
 import KeywordsTable from "@/components/KeywordsTable";
 import KeywordGap from "@/components/KeywordGap";
+import SlideView from "@/components/SlideView";
 import { RankedKeyword } from "@/lib/dataforseo";
 import { GapKeyword } from "@/lib/types";
 
@@ -45,6 +46,8 @@ export default function Home() {
   const [rankedResult, setRankedResult] = useState<RankedResult | null>(null);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("keywords");
+  const [slideOpen, setSlideOpen] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
 
   const loc = LOCATIONS[locationIdx];
 
@@ -104,48 +107,83 @@ export default function Home() {
 
   const hasResults = !!rankedResult || !!benchmarkResult;
 
+  async function exportPagePDF() {
+    setPdfExporting(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: html2canvas } = await import("html2canvas");
+      const el = document.getElementById("results-section");
+      if (!el) return;
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const img = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: "a4" });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = (canvas.height * pdfW) / canvas.width;
+      pdf.addImage(img, "PNG", 0, 0, pdfW, pdfH);
+      pdf.save(`benchmark-${domain || "report"}.pdf`);
+    } finally {
+      setPdfExporting(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans">
       {/* Header */}
-      <header className="border-b border-slate-800 px-6 py-4 flex items-center gap-3">
-        <BarChart3 className="w-6 h-6 text-blue-400" />
-        <h1 className="text-lg font-semibold tracking-tight">
-          Competitor Benchmark
-        </h1>
-        <span className="ml-1 text-xs text-slate-500 font-normal">
-          powered by DataForSEO
-        </span>
+      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 no-print sticky top-0 z-40 shadow-sm">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-600" />
+          <span className="font-bold text-gray-900 text-base tracking-tight">Benchmark</span>
+          <span className="text-xs text-gray-400 font-normal">by DataForSEO</span>
+        </div>
+        {hasResults && (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={exportPagePDF}
+              disabled={pdfExporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-600 text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              {pdfExporting ? "Exporting…" : "Export PDF"}
+            </button>
+            <button
+              onClick={() => setSlideOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
+            >
+              <Presentation className="w-3.5 h-3.5" />
+              Presentation
+            </button>
+          </div>
+        )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-6">
         {/* Config panel */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-6">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col gap-6 no-print">
           {/* Mode */}
           <div>
-            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">
-              Mode
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+              Analysis type
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(
                 [
-                  { key: "ranked", label: "Ranking Keywords" },
-                  { key: "relevant", label: "Relevant Keywords" },
-                  { key: "benchmark", label: "Multi-domain Benchmark" },
-                ] as { key: Mode; label: string }[]
-              ).map(({ key, label }) => (
+                  { key: "ranked", label: "Ranking Keywords", desc: "What the domain ranks for now" },
+                  { key: "relevant", label: "Relevant Keywords", desc: "Full relevant keyword space" },
+                  { key: "benchmark", label: "Multi-domain Benchmark", desc: "Keyword gap across domains" },
+                ] as { key: Mode; label: string; desc: string }[]
+              ).map(({ key, label, desc }) => (
                 <button
                   key={key}
                   onClick={() => setMode(key)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                     mode === key
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700"
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
                   }`}
                 >
-                  {key === "benchmark" && (
-                    <GitCompareArrows className="w-4 h-4" />
-                  )}
+                  {key === "benchmark" && <GitCompareArrows className="w-4 h-4" />}
                   {label}
+                  {mode === key && <span className="text-xs opacity-75 font-normal hidden sm:inline">— {desc}</span>}
                 </button>
               ))}
             </div>
@@ -153,7 +191,7 @@ export default function Home() {
 
           {/* Domain inputs */}
           <div className="flex flex-col gap-3">
-            <label className="text-xs text-slate-400 uppercase tracking-wide">
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
               {mode === "benchmark" ? "Main domain" : "Domain"}
             </label>
             <input
@@ -162,16 +200,16 @@ export default function Home() {
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && run()}
-              className="w-full max-w-md px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full max-w-sm px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-sm"
             />
 
             {mode === "benchmark" && (
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wide">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
                   Competitors
                 </label>
                 {competitors.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2 max-w-md">
+                  <div key={i} className="flex items-center gap-2 max-w-sm">
                     <input
                       type="text"
                       placeholder={`competitor${i + 1}.com`}
@@ -181,14 +219,12 @@ export default function Home() {
                         next[i] = e.target.value;
                         setCompetitors(next);
                       }}
-                      className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
                     />
                     {competitors.length > 1 && (
                       <button
-                        onClick={() =>
-                          setCompetitors(competitors.filter((_, j) => j !== i))
-                        }
-                        className="p-2 text-slate-500 hover:text-red-400 transition-colors"
+                        onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))}
+                        className="p-2 text-gray-300 hover:text-red-400 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -198,7 +234,7 @@ export default function Home() {
                 {competitors.length < 4 && (
                   <button
                     onClick={() => setCompetitors([...competitors, ""])}
-                    className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors w-fit"
+                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 transition-colors w-fit font-medium"
                   >
                     <Plus className="w-4 h-4" />
                     Add competitor
@@ -211,18 +247,16 @@ export default function Home() {
           {/* Location + Run */}
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
                 Country / Language
               </label>
               <select
                 value={locationIdx}
                 onChange={(e) => setLocationIdx(Number(e.target.value))}
-                className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-blue-500"
+                className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
               >
                 {LOCATIONS.map((l, i) => (
-                  <option key={i} value={i}>
-                    {l.label}
-                  </option>
+                  <option key={i} value={i}>{l.label}</option>
                 ))}
               </select>
             </div>
@@ -230,94 +264,72 @@ export default function Home() {
             <button
               onClick={run}
               disabled={loading || !domain.trim()}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-colors shadow-sm text-sm"
             >
               {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Fetching…
-                </>
-              ) : (
-                "Run analysis"
-              )}
+                <><Loader2 className="w-4 h-4 animate-spin" />Fetching…</>
+              ) : "Run analysis"}
             </button>
           </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-3 bg-red-950/40 border border-red-800 rounded-xl px-4 py-3 text-red-300">
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-600">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm font-medium">{error}</span>
           </div>
         )}
 
         {/* Results */}
         {hasResults && (
-          <div className="flex flex-col gap-6">
-            {/* Stats */}
+          <div id="results-section" className="flex flex-col gap-6">
             {rankedResult && (
               <>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-slate-200">
-                    {rankedResult.domain}
-                    <span className="ml-2 text-sm text-slate-500 font-normal">
-                      {rankedResult.total.toLocaleString()} keywords
-                    </span>
-                  </h2>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{rankedResult.domain}</h2>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                      {rankedResult.total.toLocaleString()} organic keywords · {LOCATIONS[locationIdx].label}
+                    </p>
+                  </div>
                 </div>
                 <StatsCards keywords={rankedResult.keywords} />
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                  <KeywordsTable keywords={rankedResult.keywords} />
+                </div>
               </>
             )}
 
             {benchmarkResult && (
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-slate-200">
-                  Benchmark
-                  <span className="ml-2 text-sm text-slate-500 font-normal">
-                    {benchmarkResult.domains.join(" vs ")} ·{" "}
-                    {benchmarkResult.total.toLocaleString()} unique keywords
-                  </span>
-                </h2>
-              </div>
-            )}
-
-            {/* Tabs */}
-            {benchmarkResult && (
-              <div className="flex gap-2 border-b border-slate-800 pb-0">
-                {(
-                  [
-                    { key: "gap", label: "Keyword Gap" },
-                  ] as { key: Tab; label: string }[]
-                ).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                      activeTab === key
-                        ? "border-blue-500 text-blue-400"
-                        : "border-transparent text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Table views */}
-            {rankedResult && (
-              <KeywordsTable keywords={rankedResult.keywords} />
-            )}
-            {benchmarkResult && activeTab === "gap" && (
-              <KeywordGap
-                gap={benchmarkResult.gap}
-                domains={benchmarkResult.domains}
-              />
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Keyword Gap Analysis</h2>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                      {benchmarkResult.domains.join(" vs ")} · {benchmarkResult.total.toLocaleString()} unique keywords
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                  <KeywordGap gap={benchmarkResult.gap} domains={benchmarkResult.domains} />
+                </div>
+              </>
             )}
           </div>
         )}
       </main>
+
+      {/* Slide View */}
+      {slideOpen && (
+        <SlideView
+          domain={rankedResult?.domain ?? benchmarkResult?.domains[0] ?? domain}
+          keywords={rankedResult?.keywords}
+          gap={benchmarkResult?.gap}
+          gapDomains={benchmarkResult?.domains}
+          onClose={() => setSlideOpen(false)}
+        />
+      )}
     </div>
   );
 }

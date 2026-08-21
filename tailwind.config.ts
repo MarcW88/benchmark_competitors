@@ -7,7 +7,24 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        brand: {
+          DEFAULT: "#2563EB",
+          light: "#EFF6FF",
+          dark: "#1E40AF",
+        },
+        surface: "#F8FAFC",
+        border: "#E2E8F0",
+        muted: "#64748B",
+        success: "#10B981",
+        warning: "#F59E0B",
+        danger: "#EF4444",
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 };
