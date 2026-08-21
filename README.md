@@ -1,4 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Competitor Benchmark
+
+SEO keyword benchmark tool powered by [DataForSEO](https://dataforseo.com). Built with Next.js 14 + TailwindCSS, deployable on Vercel.
+
+## Features
+
+- **Ranking Keywords** — all keywords a domain currently ranks for (organic), with full pagination
+- **Relevant Keywords** — broader keyword set DataForSEO associates with the domain
+- **Multi-domain Benchmark** — keyword gap analysis across up to 5 domains side by side
+- Filters: position range, search volume, keyword search
+- Export to CSV
+- Deployable to Vercel in one click
+
+## Setup
+
+1. Copy `env.example` to `.env.local` and fill in your DataForSEO credentials:
+
+```
+DATAFORSEO_LOGIN=your_login@email.com
+DATAFORSEO_PASSWORD=your_api_password
+```
+
+Get your credentials at [app.dataforseo.com/register](https://app.dataforseo.com/register).
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Run locally:
+
+```bash
+npm run dev
+```
+
+## Deploy to Vercel
+
+1. Push to your GitHub repo
+2. Import in [vercel.com/new](https://vercel.com/new)
+3. Add `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` as environment variables
+4. Deploy
+
+## API Endpoints used
+
+| Endpoint | Purpose |
+|---|---|
+| `dataforseo_labs/google/ranked_keywords/live` | Current ranking keywords for a domain |
+| `dataforseo_labs/google/keywords_for_site/live` | Relevant keyword ideas for a domain |
+
+## Cost estimate (DataForSEO)
+
+Each `/live` call costs ~$0.002–$0.01. A full ranked_keywords pull for a medium site (5,000 keywords) = ~20 paginated calls = a few cents.
 
 ## Getting Started
 

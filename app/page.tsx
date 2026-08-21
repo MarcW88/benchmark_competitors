@@ -1,68 +1,322 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { Plus, X, BarChart3, GitCompareArrows, Loader2, AlertCircle } from "lucide-react";
+import StatsCards from "@/components/StatsCards";
+import KeywordsTable from "@/components/KeywordsTable";
+import KeywordGap from "@/components/KeywordGap";
+import { RankedKeyword } from "@/lib/dataforseo";
+import { GapKeyword } from "@/app/api/benchmark/route";
+
+const LOCATIONS = [
+  { label: "Belgium (FR)", code: 2056, lang: "fr" },
+  { label: "Belgium (NL)", code: 2056, lang: "nl" },
+  { label: "France", code: 2250, lang: "fr" },
+  { label: "Luxembourg", code: 2442, lang: "fr" },
+  { label: "Switzerland (FR)", code: 2756, lang: "fr" },
+  { label: "Netherlands", code: 2528, lang: "nl" },
+  { label: "United States", code: 2840, lang: "en" },
+  { label: "United Kingdom", code: 2826, lang: "en" },
+  { label: "Germany", code: 2276, lang: "de" },
+];
+
+type Mode = "ranked" | "relevant" | "benchmark";
+type Tab = "keywords" | "gap";
+
+interface RankedResult {
+  domain: string;
+  keywords: RankedKeyword[];
+  total: number;
+}
+
+interface BenchmarkResult {
+  gap: GapKeyword[];
+  domains: string[];
+  total: number;
+}
 
 export default function Home() {
+  const [mode, setMode] = useState<Mode>("ranked");
+  const [domain, setDomain] = useState("");
+  const [competitors, setCompetitors] = useState<string[]>([""]);
+  const [locationIdx, setLocationIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rankedResult, setRankedResult] = useState<RankedResult | null>(null);
+  const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("keywords");
+
+  const loc = LOCATIONS[locationIdx];
+
+  async function run() {
+    if (!domain.trim()) return;
+    setLoading(true);
+    setError(null);
+    setRankedResult(null);
+    setBenchmarkResult(null);
+
+    try {
+      if (mode === "ranked" || mode === "relevant") {
+        const endpoint =
+          mode === "ranked"
+            ? "/api/ranked-keywords"
+            : "/api/keywords-for-site";
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target: domain.trim(),
+            location_code: loc.code,
+            language_code: loc.lang,
+            only_organic: true,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setRankedResult({
+          domain: domain.trim(),
+          keywords: data.keywords,
+          total: data.total,
+        });
+        setActiveTab("keywords");
+      } else {
+        const allDomains = [domain.trim(), ...competitors.map((c) => c.trim()).filter(Boolean)];
+        const res = await fetch("/api/benchmark", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            domains: allDomains,
+            location_code: loc.code,
+            language_code: loc.lang,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setBenchmarkResult(data);
+        setActiveTab("gap");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const hasResults = !!rankedResult || !!benchmarkResult;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
+      {/* Header */}
+      <header className="border-b border-slate-800 px-6 py-4 flex items-center gap-3">
+        <BarChart3 className="w-6 h-6 text-blue-400" />
+        <h1 className="text-lg font-semibold tracking-tight">
+          Competitor Benchmark
+        </h1>
+        <span className="ml-1 text-xs text-slate-500 font-normal">
+          powered by DataForSEO
+        </span>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
+        {/* Config panel */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-6">
+          {/* Mode */}
+          <div>
+            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">
+              Mode
+            </label>
+            <div className="flex gap-2">
+              {(
+                [
+                  { key: "ranked", label: "Ranking Keywords" },
+                  { key: "relevant", label: "Relevant Keywords" },
+                  { key: "benchmark", label: "Multi-domain Benchmark" },
+                ] as { key: Mode; label: string }[]
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setMode(key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    mode === key
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700"
+                  }`}
+                >
+                  {key === "benchmark" && (
+                    <GitCompareArrows className="w-4 h-4" />
+                  )}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Domain inputs */}
+          <div className="flex flex-col gap-3">
+            <label className="text-xs text-slate-400 uppercase tracking-wide">
+              {mode === "benchmark" ? "Main domain" : "Domain"}
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. decathlon.be"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && run()}
+              className="w-full max-w-md px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            {mode === "benchmark" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-slate-400 uppercase tracking-wide">
+                  Competitors
+                </label>
+                {competitors.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2 max-w-md">
+                    <input
+                      type="text"
+                      placeholder={`competitor${i + 1}.com`}
+                      value={c}
+                      onChange={(e) => {
+                        const next = [...competitors];
+                        next[i] = e.target.value;
+                        setCompetitors(next);
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                    {competitors.length > 1 && (
+                      <button
+                        onClick={() =>
+                          setCompetitors(competitors.filter((_, j) => j !== i))
+                        }
+                        className="p-2 text-slate-500 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {competitors.length < 4 && (
+                  <button
+                    onClick={() => setCompetitors([...competitors, ""])}
+                    className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors w-fit"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add competitor
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Location + Run */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">
+                Country / Language
+              </label>
+              <select
+                value={locationIdx}
+                onChange={(e) => setLocationIdx(Number(e.target.value))}
+                className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-blue-500"
+              >
+                {LOCATIONS.map((l, i) => (
+                  <option key={i} value={i}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={run}
+              disabled={loading || !domain.trim()}
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Fetching…
+                </>
+              ) : (
+                "Run analysis"
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-center gap-3 bg-red-950/40 border border-red-800 rounded-xl px-4 py-3 text-red-300">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="text-sm">{error}</span>
+          </div>
+        )}
+
+        {/* Results */}
+        {hasResults && (
+          <div className="flex flex-col gap-6">
+            {/* Stats */}
+            {rankedResult && (
+              <>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-slate-200">
+                    {rankedResult.domain}
+                    <span className="ml-2 text-sm text-slate-500 font-normal">
+                      {rankedResult.total.toLocaleString()} keywords
+                    </span>
+                  </h2>
+                </div>
+                <StatsCards keywords={rankedResult.keywords} />
+              </>
+            )}
+
+            {benchmarkResult && (
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-slate-200">
+                  Benchmark
+                  <span className="ml-2 text-sm text-slate-500 font-normal">
+                    {benchmarkResult.domains.join(" vs ")} ·{" "}
+                    {benchmarkResult.total.toLocaleString()} unique keywords
+                  </span>
+                </h2>
+              </div>
+            )}
+
+            {/* Tabs */}
+            {benchmarkResult && (
+              <div className="flex gap-2 border-b border-slate-800 pb-0">
+                {(
+                  [
+                    { key: "gap", label: "Keyword Gap" },
+                  ] as { key: Tab; label: string }[]
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                      activeTab === key
+                        ? "border-blue-500 text-blue-400"
+                        : "border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Table views */}
+            {rankedResult && (
+              <KeywordsTable keywords={rankedResult.keywords} />
+            )}
+            {benchmarkResult && activeTab === "gap" && (
+              <KeywordGap
+                gap={benchmarkResult.gap}
+                domains={benchmarkResult.domains}
+              />
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
