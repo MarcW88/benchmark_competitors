@@ -2,6 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { NextRequest } from "next/server";
+import { isValidAccessToken } from "@/lib/oauth";
 
 export const maxDuration = 60;
 
@@ -202,11 +203,22 @@ function withCors(response: Response): Response {
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, MCP-Session-Id, MCP-Protocol-Version");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, MCP-Session-Id, MCP-Protocol-Version");
   return new Response(response.body, { status: response.status, headers });
 }
 
+function authError() {
+  return withCors(new Response(
+    JSON.stringify({ error: "unauthorized", error_description: "Valid Bearer token required" }),
+    { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": "Bearer" } }
+  ));
+}
+
 async function handle(req: NextRequest): Promise<Response> {
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token || !isValidAccessToken(token)) return authError();
+
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   const server = createMcpServer();
   await server.connect(transport);
