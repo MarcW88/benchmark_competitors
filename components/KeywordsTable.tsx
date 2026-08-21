@@ -9,6 +9,7 @@ type BrandFilter = "all" | "brand" | "non-brand";
 interface Props {
   keywords: RankedKeyword[];
   brandName?: string;
+  exportMode?: boolean;
 }
 
 const POSITION_RANGES = [
@@ -29,7 +30,7 @@ function posBadge(pos: number) {
   return "bg-gray-100 text-gray-500";
 }
 
-export default function KeywordsTable({ keywords, brandName = "" }: Props) {
+export default function KeywordsTable({ keywords, brandName = "", exportMode = false }: Props) {
   const [search, setSearch] = useState("");
   const [posRange, setPosRange] = useState(0);
   const [minVolume, setMinVolume] = useState(0);
@@ -72,10 +73,10 @@ export default function KeywordsTable({ keywords, brandName = "" }: Props) {
           ? String(av).localeCompare(String(bv))
           : String(bv).localeCompare(String(av));
       });
-  }, [keywords, search, posRange, minVolume, sortKey, sortAsc]);
+  }, [keywords, search, posRange, minVolume, sortKey, sortAsc, brandFilter, brandName]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paged = exportMode ? filtered : filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function handleSort(key: keyof RankedKeyword) {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -244,7 +245,7 @@ export default function KeywordsTable({ keywords, brandName = "" }: Props) {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {!exportMode && totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-gray-500">
           <span>Page {page} of {totalPages} · {filtered.length.toLocaleString()} results</span>
           <div className="flex gap-2">

@@ -8,6 +8,7 @@ interface Props {
   gap: GapKeyword[];
   domains: string[];
   brandName?: string;
+  exportMode?: boolean;
 }
 
 type GapFilter = "all" | "gap" | "shared";
@@ -15,7 +16,7 @@ type BrandFilter = "all" | "brand" | "non-brand";
 
 const PAGE_SIZE = 50;
 
-export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
+export default function KeywordGap({ gap, domains, brandName = "", exportMode = false }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<GapFilter>("all");
   const [brandFilter, setBrandFilter] = useState<BrandFilter>("all");
@@ -55,7 +56,7 @@ export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
   }, [gap, search, filter, brandFilter, minVolume, mainDomain, competitors, brandName]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paged = exportMode ? filtered : filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function exportCSV() {
     const headers = [
@@ -225,7 +226,7 @@ export default function KeywordGap({ gap, domains, brandName = "" }: Props) {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {!exportMode && totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-gray-500">
           <span>Page {page} of {totalPages} · {filtered.length.toLocaleString()} results</span>
           <div className="flex gap-2">
